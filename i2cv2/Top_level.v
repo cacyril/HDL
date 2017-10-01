@@ -6,7 +6,7 @@ module Top_level
 	 inout i2c_io_scl,
 	 inout i2c_io_sda,
 	 output uart_tx
-	 //output [7:0] debug_led
+	 output [7:0] debug_led
 	 );
 	 
 	 wire i2c_start;
@@ -101,5 +101,6 @@ module Top_level
 						 .clk_100KHz(clk_100KHz),
 						 .clk_400KHz(clk_400KHz)
 						 );	 
+	assign debug_led = o_i2c_data;
 	 
 endmodule 

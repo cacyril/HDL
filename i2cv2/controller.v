@@ -12,7 +12,6 @@ module controller
 	output reg [2:0] i2c_strobes,
 	output [7:0] o_data_uart,
 	output reg [7:0] o_data_i2c
-	//output [7:0] debug
 	);
 	
 	parameter [2:0]
@@ -315,9 +314,7 @@ module controller
 	assign o_data_uart =( {8{(state == TX_RESPONSE1)}} & data2_uart1) | ({8{(state == TX_RESPONSE2)}} & data2_uart2);
 	assign rst_uart_ready = (state == DECODE) & data_ready_uart;
 	
-	/* To debug state transitions */
-	/*assign debug = ~(({8{state == IDLE}} & 8'h01) | ({8{state == DECODE}} & 8'h02) | ({8{state == SEND_CMD}} & 8'h03) | ({8{state == WAIT1}} & 8'h04) | 
-	               ({8{state == WAIT2}} & 8'h05) | ({8{state == TX_RESPONSE1}} & 8'h06) | ({8{state == TX_RESPONSE1}} & 8'h07));*/
+	
 	always @(state)
     begin
 	    case(state)

@@ -74,6 +74,7 @@ reg [7:0] in_data; /* Data lactched from input for write or Buffer for read comm
 
 wire clk0 = i2c_clk;
 wire clk90;
+
 clk_shift90 clk_s0(.std_clk(m_clk),
                    .reset_n(reset_n),
 				   .i_clk0(i2c_clk),
