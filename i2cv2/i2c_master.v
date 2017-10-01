@@ -1,11 +1,8 @@
 /*
  * An i2c master controller implementation. 7-bit address 8-bit data, r/w.
  *
- * Copyright (c) 2015 Joel Fernandes <joel@linuxinternals.org>
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * Engineeer: Chibueze Cyril Akaluka
+ * 
  */
 
 `timescale 1ns / 1ps
@@ -35,8 +32,7 @@ parameter [3:0]
 		  ST_WAIT_NXT_CMD  = 4'h6,
 		  ST_CHECK_ADDR_DATA_ACK = 4'h7,
 		  ST_SEND_ACK     = 4'h8,
-		  ST_SEND_NACK    = 4'h9,
-		  ST_WAIT_READ1    = 4'hA
+		  ST_SEND_NACK    = 4'h9
 		  ;
 /* For simulation purposes only. To track state transitions textually */		  
 reg [8*10-1:0] my_state_text;
@@ -45,11 +41,11 @@ reg [8*10-1:0] my_state_text;
 reg [7:0] addr_cmd_data = 8'b0;// Address with command reg, also serves as data register
 reg cmd;
 reg r_start;
-wire [2:0] control_in;
-assign control_in = {i_rw_data, i_start, i_stop};
 
-
-reg status_err_nack_addr, status_err_nack_data, status_data_ready, status_tx_in_progress;
+reg status_err_nack_addr; 
+reg status_err_nack_data;
+reg status_data_ready;
+reg status_tx_in_progress;
 assign o_status = {status_err_nack_addr, status_err_nack_data, status_tx_in_progress, status_data_ready};
 
 reg reg_sda;
@@ -58,27 +54,28 @@ assign o_scl = reg_scl;
 assign o_sda = reg_sda;
 
 reg [3:0] state;
-reg [3:0] clk0_state = 4'b1;
-reg [3:0] clk0_count;// counter during positive cycle;
+reg [3:0] clk0_state = ST_IDLE;
+reg [3:0] clk0_count;// counter during clk0 positive edge;
 reg [3:0] clk90_state = 4'b0;
-reg [3:0] clk90_count; //couner during negative cycle;
+reg [3:0] clk90_count; //counter during clk90 positive edge;
 
-reg wr_sda_pos_clk90; /* Write enable for positive or negative edge of clock*/
-reg reg_sda_pos_clk90; /* Data register for SDA for positive and negative clock cycles*/
+reg wr_scl_neg_clk0;
 reg wr_scl_pos_clk0;
+
+reg wr_sda_pos_clk90;
+reg reg_sda_pos_clk90; 
 reg wr_sda_neg_clk90;
 reg reg_sda_neg_clk_90;
-reg wr_scl_neg_clk0;
 
-reg [7:0] in_data; /* Data lactched from input for write or Buffer for read command*/
+reg [7:0] in_data; /* Buffer for read command*/
 
 wire clk0 = i2c_clk;
 wire clk90;
 
-clk_shift90 clk_s0(.std_clk(m_clk),
-                   .reset_n(reset_n),
-				   .i_clk0(i2c_clk),
-				   .o_clk90(clk90)
+clk_shift90 clk_s90(.std_clk(m_clk),
+                    .reset_n(reset_n),
+				    .i_clk0(i2c_clk),
+				    .o_clk90(clk90)
 				   );
 
 
@@ -97,7 +94,7 @@ begin
 		    else
 		        state <= clk0_state;
 			
-		default:
+		default:                  /* For other cases, clk0 takes priority */
 		    if(clk0_state != 0)
 			    state <= clk0_state;
 			else
@@ -131,8 +128,6 @@ begin
 		ST_WR_ADDR_DATA:
 		    if(wr_scl_pos_clk0)
 			    reg_scl = 1'b0;
-			else if(!wr_sda_pos_clk90) /* if data write is not started, keep scl low */
-			   reg_scl = 1'b0;
 			else
 			    reg_scl = clk0;
 		default:
@@ -218,15 +213,17 @@ begin
 	    		else
 	    		begin
 	    		    if(r_start & cmd) /*if there was a start and command was to read: indicating first read sequence*/
+					begin
+					    r_start <= 0;
 	    		        clk0_state <= ST_RD_DATA;
+					end
 	    		    else
 	    		        clk0_state <= ST_WAIT_NXT_CMD; // Go to wait state for next command
-					r_start <= 0;
 	    		end
 	    	end
 	    	
 	    	ST_SEND_ACK:
-	    	/* Ack was sent last falling edge, and the slave is sampling it.
+	    	/* Ack was sent at positive edge of clk90, and the slave is sampling it.
 	    	 * There is new request for data. Go to the read state*/
 	    	begin
 	    	    clk0_state <= ST_RD_DATA;
@@ -238,9 +235,9 @@ begin
 	    	 begin
 	    	     clk0_state <= ST_CMD_STOP;
 	    	 end
-			ST_WAIT_NXT_CMD: /*Clock is disconnected when in this state, at resumption, clocking starts from high*/
+			ST_WAIT_NXT_CMD: /*Clock is disconnected after a half cycle when in this state and remains low */
 	    	begin
-	    		case(control_in)
+	    		case({i_rw_data, i_start, i_stop})
 	    		    3'b001:  /*i_stop signal*/
 	    			begin
 	    				status_tx_in_progress <= 1'b1;
@@ -262,22 +259,27 @@ begin
 	    				status_tx_in_progress <= 1'b1;
 						status_data_ready <= 1'b0;
 	    			end
-	    			3'b100: /*i_rw_data - Read data if cmd = 1 or Write data if cmd = 0*/
+	    			3'b100: /*i_rw_data - Read data if cmd == 1 or Write data if cmd == 0*/
 	    			begin
 	    			    status_tx_in_progress <= 1'b1;
 	    				addr_cmd_data <= i_addr_cmd_data;
-	    				status_data_ready <= 1'b0;
 	    			    if(cmd == 1'b1)
+						begin
+						    status_data_ready <= 1'b0;
 	    				    clk0_state <= ST_SEND_ACK;
+						end
 	    				else
+						begin
+						    wr_scl_pos_clk0 <= 1'b1;
 	    				    clk0_state <= ST_WR_ADDR_DATA;
+						end
 	    			end
 					3'b000: /* No active strobe */
 					begin
 						status_tx_in_progress <= 1'b0;
 	    				clk0_state <= state;
 					end
-	    			default: /* unresolveable strobe */
+	    			default: /* unresolveable strobe - stop communication and return to ST_IDLE */
 	    			begin
 	    			    status_tx_in_progress <= 1'b1;
 	    			    if(cmd == 1'b1)
@@ -304,7 +306,7 @@ begin
 	else
 	begin
         clk90_state <= 0;
-	    wr_sda_pos_clk90 <= 0; /*Always relaease bus on next falling edge by default*/
+	    wr_sda_pos_clk90 <= 0; /*Always relaease bus on next rising edge by default*/
 	
 	    case(state)
 	        ST_WR_ADDR_DATA:
@@ -323,7 +325,7 @@ begin
 				    clk90_state <= state;  // continue with the current state
 			    end
 		    end  
-            ST_SEND_ACK:  /* Prepare sda line for acknowledgement */ 
+            ST_SEND_ACK: 
 			begin
 			    wr_sda_pos_clk90 <= 1'b1;
 				reg_sda_pos_clk90 <= 1'b0;
@@ -347,6 +349,7 @@ begin
     end		
 end
 
+/* To keep scl low after the first half cycle in ST_WAIT_NXT_CMD */
 always @(negedge clk0, negedge reset_n)
 begin
     if(reset_n == 0)
@@ -359,6 +362,7 @@ begin
 	end
 end
 
+/* To assert the i2c stop condition */
 always @(negedge clk90, negedge reset_n)
 begin
     if(reset_n == 0)
@@ -377,6 +381,7 @@ begin
 		
 	end
 end
+
 always @(state)
 begin
   case(state)
@@ -389,7 +394,6 @@ begin
 		  ST_CHECK_ADDR_DATA_ACK : my_state_text = " CHECK_ACK";
 		  ST_SEND_ACK:             my_state_text = "  SEND_ACK";
 		  ST_SEND_NACK:            my_state_text = " SEND_NACK";
-		  ST_WAIT_READ1:           my_state_text = " WAIT_READ";
   endcase
 end
 
