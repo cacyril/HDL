@@ -5,8 +5,8 @@ module Top_level
 	 input uart_rx,
 	 inout i2c_io_scl,
 	 inout i2c_io_sda,
-	 output uart_tx,
-	 output [7:0] debug_led
+	 output uart_tx
+	 //output [7:0] debug_led
 	 );
 	 
 	 wire i2c_start;
@@ -21,6 +21,7 @@ module Top_level
 	 wire uart_data_ready;
 	 wire uart_rx_busy;
 	 wire uart_tx_start;
+	 wire clk_400KHz;
 	 wire clk_100KHz;
 	 wire clk_10KHz;
 	 wire [7:0] uart_rx_data;
@@ -59,7 +60,7 @@ module Top_level
 				   .BUSY(uart_tx_busy)
 				   );
 				   
-	i2c_master i2c_0(.i2c_clk(clk_100KHz),
+	i2c_master i2c_0(.i2c_clk(clk_400KHz),
 	                 .m_clk(clk),
 	                 .reset_n(reset_n),
 	                 .i_addr_cmd_data(i_i2c_data),
@@ -98,7 +99,7 @@ module Top_level
 	                    .reset_n(reset_n),
 						 .clk_10KHz(clk_10KHz),
 						 .clk_100KHz(clk_100KHz),
-						 .clk_400KHz()
+						 .clk_400KHz(clk_400KHz)
 						 );	 
-	 assign debug_led = o_i2c_data;
+	 
 endmodule 
