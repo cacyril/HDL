@@ -1,11 +1,10 @@
 module Top_level
     (
 	 input clk,
-	// input reset_n,
 	 input uart_rx,
 	 inout i2c_io_scl,
 	 inout i2c_io_sda,
-	 output uart_tx
+	 output uart_tx,
 	 output [7:0] debug_led
 	 );
 	 
@@ -73,7 +72,6 @@ module Top_level
 					 .o_scl(o_scl),
 					 .o_data(o_i2c_data),
 					 .o_status(o_i2c_status)
-//					 .debug({i2c_m_debug_float,debug_led[4:0]})
 					 );
 	assign i2c_io_sda = (o_sda)? 1'bz : 1'b0;
     assign i2c_io_scl = (o_scl)? 1'bz : 1'b0;
@@ -93,7 +91,6 @@ module Top_level
 					   .i2c_strobes({i2c_stop, i2c_rw, i2c_start}),
 					   .o_data_uart(uart_tx_data),
 					   .o_data_i2c(i_i2c_data)
-					   //.debug({c_debug_float,debug_led[7:5]})
 					   );
 	freq_divider freq_d0(.clk(clk),
 	                    .reset_n(reset_n),
