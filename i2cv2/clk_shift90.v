@@ -66,7 +66,7 @@ module clk_shift90
 	    	   if(count_start)
 	    	      count_enable <= 1;
 	    		
-	            if(i_clk0 | !i_clk0)
+	            if(count_start | counter_enable)
 	    	      if(counter == (SAMPLE_COUNT - 1) )
 	    		  begin
 	    		    o_clk90 <= ~i_clk0;
@@ -74,8 +74,7 @@ module clk_shift90
 	    			count_enable <= 1'b0;
 	    		  end
 	    		  else
-	    		     if(count_start | count_enable)
-	    		         counter <= counter + 1'b1;
+	    		      counter <= counter + 1'b1;
             end			  
 	    end
 	end
@@ -98,7 +97,7 @@ module clk_shift90
 		        if(count_start)
 		            count_enable <= 1;
 			
-	            if(i_clk0 | !i_clk0)
+	            if(count_start | count_enable)
 		            if(counter == (SAMPLE_COUNT - 1'b1 + (({NUMERATOR_WIDTH{(adj_counter == FRACTION_DENOMINATOR-1)}}) & (FRACTION_NUMERATOR))))
 			        begin
 			          o_clk90 <= ~i_clk0;
@@ -109,8 +108,7 @@ module clk_shift90
 						  adj_counter <= 0;
 			        end
 			        else
-			            if(count_start | count_enable)
-			                counter <= counter + 1'b1;
+			            counter <= counter + 1'b1;
             end			  
 	    end
 	end
